@@ -1,0 +1,116 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+
+    static class Root {
+        int x;
+        int base;
+        String value;
+        BigInteger y;
+        Root(int x, int base, String value) {
+            this.x = x;
+            this.base = base;
+            this.value = value;
+            this.y = decodeValue(value, base);
+        }
+    }
+
+    // Decode a string in given base to BigInteger
+    public static BigInteger decodeValue(String value, int base) {
+        String digits = "0123456789abcdef";
+        value = value.toLowerCase();
+        BigInteger result = BigInteger.ZERO;
+        BigInteger baseBI = BigInteger.valueOf(base);
+
+        for (char ch : value.toCharArray()) {
+            int digit = digits.indexOf(ch);
+            if (digit < 0 || digit >= base) {
+                throw new IllegalArgumentException("Invalid digit '" + ch + "' for base " + base);
+            }
+            result = result.multiply(baseBI).add(BigInteger.valueOf(digit));
+        }
+        return result;
+    }
+
+    // Lagrange interpolation at x=0
+    public static BigInteger lagrangeAtZero(List<Root> roots) {
+        int k = roots.size();
+        BigInteger result = BigInteger.ZERO;
+
+        for (int j = 0; j < k; j++) {
+            BigInteger numerator = BigInteger.ONE;
+            BigInteger denominator = BigInteger.ONE;
+
+            BigInteger xj = BigInteger.valueOf(roots.get(j).x);
+
+            for (int m = 0; m < k; m++) {
+                if (m == j) continue;
+                BigInteger xm = BigInteger.valueOf(roots.get(m).x);
+                numerator = numerator.multiply(xm.negate());
+                denominator = denominator.multiply(xj.subtract(xm));
+            }
+
+            BigInteger term = roots.get(j).y.multiply(numerator).divide(denominator);
+            result = result.add(term);
+        }
+        return result;
+    }
+
+    // Read the JSON-like file manually (simple parsing)
+    public static List<Root> parseInput(String filename, int[] nk) throws Exception {
+        BufferedReader br = new BufferedReader(new FileReader(filename));
+        String line;
+        int n = 0, k = 0;
+        List<Root> roots = new ArrayList<>();
+
+        // We'll do a very simple parse, assuming input format is exactly as given
+        while ((line = br.readLine()) != null) {
+            line = line.trim();
+            if (line.startsWith("\"n\"")) {
+                n = Integer.parseInt(line.split(":")[1].trim().replaceAll("[,}]", ""));
+            }
+            if (line.startsWith("\"k\"")) {
+                k = Integer.parseInt(line.split(":")[1].trim().replaceAll("[,}]", ""));
+            }
+            // Parse roots like "1": { "base": "10", "value": "4" }
+            if (line.matches("\"\\d+\".*")) {
+                int x = Integer.parseInt(line.substring(1, line.indexOf("\"", 1)));
+                // read next two lines for base and value
+                String baseLine = br.readLine().trim();
+                String valLine = br.readLine().trim();
+                // extract base
+                int base = Integer.parseInt(baseLine.split(":")[1].trim().replaceAll("[\",]", ""));
+                // extract value
+                String value = valLine.split(":")[1].trim().replaceAll("[\",]", "").replace("}", "");
+                roots.add(new Root(x, base, value));
+            }
+        }
+        br.close();
+        nk[0] = n;
+        nk[1] = k;
+        return roots;
+    }
+
+    public static void main(String[] args) throws Exception {
+        // Replace these with your JSON filenames
+        String file1 = "test1.json";
+        String file2 = "test2.json";
+
+        int[] nk = new int[2];
+        List<Root> roots1 = parseInput(file1, nk);
+        int k1 = nk[1];
+        List<Root> subList1 = roots1.subList(0, k1);
+        BigInteger secret1 = lagrangeAtZero(subList1);
+        System.out.println("Secret for " + file1 + ": " + secret1);
+
+        List<Root> roots2 = parseInput(file2, nk);
+        int k2 = nk[1];
+        List<Root> subList2 = roots2.subList(0, k2);
+        BigInteger secret2 = lagrangeAtZero(subList2);
+        System.out.println("Secret for " + file2 + ": " + secret2);
+    }
+}
